@@ -13,4 +13,11 @@
         <item>Green</item>
     </string-array>
 
+    <string-array name="avpu">
+        <item>AWAKE</item>
+        <item>VERBAL</item>
+        <item>PAIN</item>
+        <item>UNRESPONSIVE</item>
+    </string-array>
+
 </resources>
