@@ -1,12 +1,19 @@
 package com.example.triage_app;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.design.widget.NavigationView;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
@@ -18,6 +25,7 @@ import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.ConnectionInfo;
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
 import com.google.android.gms.nearby.connection.ConnectionResolution;
+import com.google.android.gms.nearby.connection.ConnectionsClient;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo;
 import com.google.android.gms.nearby.connection.DiscoveryOptions;
@@ -35,9 +43,40 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
-
-    String SERVICE_ID = "com.example.triage_app";
+    private static final String TAG = "MainActivity";
+    private static final String[] REQUIRED_PERMISSIONS =
+            new String[]{
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.BLUETOOTH_ADMIN,
+                    Manifest.permission.ACCESS_WIFI_STATE,
+                    Manifest.permission.CHANGE_WIFI_STATE,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+            };
     String endID = "";
+    private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
+    private final EndpointDiscoveryCallback endpointDiscoveryCallback =
+            new EndpointDiscoveryCallback() {
+                @Override
+                public void onEndpointFound(String endpointId, DiscoveredEndpointInfo info) {
+                    // An endpoint was found. We request a connection to it.
+                    Nearby.getConnectionsClient(getApplicationContext())
+                            .requestConnection(info.getEndpointName(), endpointId, connectionLifecycleCallback)
+                            .addOnSuccessListener(
+                                    (Void unused) -> {
+                                        Toast.makeText(getApplicationContext(), "Połączenie uzyskane", Toast.LENGTH_SHORT).show();
+                                    })
+                            .addOnFailureListener(
+                                    (Exception e) -> {
+                                        Toast.makeText(getApplicationContext(), "Niepowodzenie", Toast.LENGTH_SHORT).show();
+                                    });
+                }
+
+                @Override
+                public void onEndpointLost(String endpointId) {
+                    // A previously discovered endpoint has gone away.
+                }
+            };
+
 
     //Payload bytesPayload = Payload.fromBytes();
 
@@ -87,43 +126,65 @@ public class MainActivity extends AppCompatActivity
             // sent or received.
         }
     };
-    private final EndpointDiscoveryCallback endpointDiscoveryCallback =
-            new EndpointDiscoveryCallback() {
-                @Override
-                public void onEndpointFound(String endpointId, DiscoveredEndpointInfo info) {
-                    // An endpoint was found. We request a connection to it.
-                    Nearby.getConnectionsClient(getApplicationContext())
-                            .requestConnection(info.getEndpointName(), endpointId, connectionLifecycleCallback)
-                            .addOnSuccessListener(
-                                    (Void unused) -> {
-                                        Toast.makeText(getApplicationContext(), "Połączenie uzyskane", Toast.LENGTH_SHORT).show();
-                                    })
-                            .addOnFailureListener(
-                                    (Exception e) -> {
-                                        // Nearby Connections failed to request the connection.
-                                    });
-                }
+    String SERVICE_ID = "com.example.coordinator_app";
 
-                @Override
-                public void onEndpointLost(String endpointId) {
-                    // A previously discovered endpoint has gone away.
-                }
-            };
+    public static boolean hasPermissions(Context context, String... permissions) {
+        for (String permission : permissions) {
+            if (ContextCompat.checkSelfPermission(context, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     private void startDiscovery() {
         DiscoveryOptions discoveryOptions =
                 new DiscoveryOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
-        Nearby.getConnectionsClient(getApplicationContext())
-                .startDiscovery(SERVICE_ID, endpointDiscoveryCallback, discoveryOptions);
+        ConnectionsClient cc = Nearby.getConnectionsClient(getApplicationContext());
+        cc.stopDiscovery();
+        cc.startDiscovery(
+                SERVICE_ID,
+                endpointDiscoveryCallback,
+                discoveryOptions)
+                .addOnSuccessListener(
+                        (Void unused) -> {
+                            Toast.makeText(getApplicationContext(), "Wyszukano urzadzenie", Toast.LENGTH_SHORT).show();
+                        })
+                .addOnFailureListener(
+                        (Exception e) -> {
+                            Toast.makeText(getApplicationContext(), "Nie wyszukano", Toast.LENGTH_SHORT).show();
+                            Log.e("TAG", e.getMessage());
+                        });
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!hasPermissions(this, getRequiredPermissions())) {
+            if (!hasPermissions(this, getRequiredPermissions())) {
+                if (Build.VERSION.SDK_INT < 23) {
+                    ActivityCompat.requestPermissions(
+                            this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                } else {
+                    requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                }
+            }
+        }
+    }
+
+    protected String[] getRequiredPermissions() {
+        return REQUIRED_PERMISSIONS;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.main_activity);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        startDiscovery();
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
