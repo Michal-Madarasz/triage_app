@@ -1,4 +1,4 @@
-package com.example.triage_app;
+package com.triage.model;
 
 import android.os.Parcel;
 import android.os.Parcelable;

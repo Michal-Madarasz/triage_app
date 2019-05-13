@@ -34,6 +34,7 @@ import com.google.android.gms.nearby.connection.Payload;
 import com.google.android.gms.nearby.connection.PayloadCallback;
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import com.google.android.gms.nearby.connection.Strategy;
+import com.triage.model.Victim;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -43,7 +44,7 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
-    private static final String TAG = "MainActivity";
+    //private static final String TAG = "MainActivity";
     private static final String[] REQUIRED_PERMISSIONS =
             new String[]{
                     Manifest.permission.BLUETOOTH,
@@ -52,6 +53,7 @@ public class MainActivity extends AppCompatActivity
                     Manifest.permission.CHANGE_WIFI_STATE,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
             };
+    String SERVICE_ID = "com.example.coordinator_app";
     String endID = "";
     private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
     private final EndpointDiscoveryCallback endpointDiscoveryCallback =
@@ -78,9 +80,8 @@ public class MainActivity extends AppCompatActivity
             };
 
 
-    //Payload bytesPayload = Payload.fromBytes();
 
-    PayloadCallback payloadReciever = new PayloadCallback() {
+    private PayloadCallback payloadReciever = new PayloadCallback() {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
             String system = payload.asBytes().toString();
@@ -94,6 +95,7 @@ public class MainActivity extends AppCompatActivity
 
         }
     };
+
     private final ConnectionLifecycleCallback connectionLifecycleCallback = new ConnectionLifecycleCallback() {
         @Override
         public void onConnectionInitiated(String endpointId, ConnectionInfo connectionInfo) {
@@ -126,7 +128,6 @@ public class MainActivity extends AppCompatActivity
             // sent or received.
         }
     };
-    String SERVICE_ID = "com.example.coordinator_app";
 
     public static boolean hasPermissions(Context context, String... permissions) {
         for (String permission : permissions) {
@@ -149,11 +150,11 @@ public class MainActivity extends AppCompatActivity
                 discoveryOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
-                            Toast.makeText(getApplicationContext(), "Wyszukano urzadzenie", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "Startujemy odkrywanie", Toast.LENGTH_SHORT).show();
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
-                            Toast.makeText(getApplicationContext(), "Nie wyszukano", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "Nie wystartowano odkrywania", Toast.LENGTH_SHORT).show();
                             Log.e("TAG", e.getMessage());
                         });
     }
