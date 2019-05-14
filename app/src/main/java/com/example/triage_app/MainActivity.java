@@ -1,10 +1,15 @@
 package com.example.triage_app;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.app.Application;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.RequiresApi;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -13,10 +18,13 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.telephony.TelephonyManager;
+import android.text.InputType;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
@@ -34,6 +42,7 @@ import com.google.android.gms.nearby.connection.Payload;
 import com.google.android.gms.nearby.connection.PayloadCallback;
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import com.google.android.gms.nearby.connection.Strategy;
+import com.triage.model.Rescuer;
 import com.triage.model.Victim;
 
 import java.io.ByteArrayOutputStream;
@@ -44,7 +53,6 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
-    //private static final String TAG = "MainActivity";
     private static final String[] REQUIRED_PERMISSIONS =
             new String[]{
                     Manifest.permission.BLUETOOTH,
@@ -52,10 +60,12 @@ public class MainActivity extends AppCompatActivity
                     Manifest.permission.ACCESS_WIFI_STATE,
                     Manifest.permission.CHANGE_WIFI_STATE,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.READ_PHONE_STATE
             };
-    String SERVICE_ID = "com.example.coordinator_app";
-    String endID = "";
+    private String SERVICE_ID = "triage.rescuer-simulator";
+    private String endID = "";
     private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
+    private Rescuer rescuerData;
     private final EndpointDiscoveryCallback endpointDiscoveryCallback =
             new EndpointDiscoveryCallback() {
                 @Override
@@ -80,14 +90,10 @@ public class MainActivity extends AppCompatActivity
             };
 
 
-
     private PayloadCallback payloadReciever = new PayloadCallback() {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
-            String system = payload.asBytes().toString();
-            TextView t = findViewById(R.id.procedure_text);
-            t.setText(system);
-            Toast.makeText(getApplicationContext(), "Otrzymano", Toast.LENGTH_SHORT).show();
+
         }
 
         @Override
@@ -102,7 +108,7 @@ public class MainActivity extends AppCompatActivity
             // Automatically accept the connection on both sides.
             Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(endpointId, payloadReciever);
             endID = endpointId;
-            Toast.makeText(getApplicationContext(), "Połączenie ustanowione", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(), "Połączenie ustanowione z " + endID, Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -142,9 +148,7 @@ public class MainActivity extends AppCompatActivity
     private void startDiscovery() {
         DiscoveryOptions discoveryOptions =
                 new DiscoveryOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
-        ConnectionsClient cc = Nearby.getConnectionsClient(getApplicationContext());
-        cc.stopDiscovery();
-        cc.startDiscovery(
+        Nearby.getConnectionsClient(getApplicationContext()).startDiscovery(
                 SERVICE_ID,
                 endpointDiscoveryCallback,
                 discoveryOptions)
@@ -172,6 +176,41 @@ public class MainActivity extends AppCompatActivity
                 }
             }
         }
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            if (Build.VERSION.SDK_INT < 23) {
+                ActivityCompat.requestPermissions(
+                        this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+            } else {
+                requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+            }
+            return;
+        }
+        TelephonyManager tm = (TelephonyManager) getBaseContext().getSystemService(Context.TELEPHONY_SERVICE);
+        Rescuer r = new Rescuer();
+
+        r.setId(tm.getDeviceId());
+        final EditText name = new EditText(this);
+        name.setInputType(InputType.TYPE_CLASS_TEXT);
+        new AlertDialog.Builder(this)
+                .setTitle("Podaj swoje dane")
+                .setMessage("Podaj swoje imię i nazwisko w celu identyfikacji (pole może być puste)")
+                .setView(name)
+                .setPositiveButton("Kontynuuj", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        r.setName(name.getText().toString());
+                        rescuerData = r;
+                    }
+                })
+                .setNegativeButton("Wyjdź", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        android.os.Process.killProcess(android.os.Process.myPid());
+                        System.exit(1);
+                    }
+                })
+                .show();
     }
 
     protected String[] getRequiredPermissions() {
