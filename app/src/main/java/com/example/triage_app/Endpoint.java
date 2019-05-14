@@ -1,15 +1,8 @@
-package com.triage.model;
+package com.example.triage_app;
 
-import java.io.Serializable;
-
-public class Rescuer implements Serializable {
-    private static final long serialVersionUID = 18636221345311L;
-
+public class Endpoint {
     private String id;
     private String name;
-
-    public Rescuer() {
-    }
 
     public String getId() {
         return id;

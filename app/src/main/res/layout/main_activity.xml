@@ -8,6 +8,7 @@
     android:fitsSystemWindows="true"
     tools:openDrawer="start">
 
+
     <include layout="@layout/main_app_bar" />
 
     <ViewFlipper
@@ -29,6 +30,7 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
+        android:visibility="gone"
         app:headerLayout="@layout/main_nav_header"
         app:menu="@menu/activity_main_drawer" />
 

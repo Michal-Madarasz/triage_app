@@ -6,20 +6,19 @@
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_coordinator"
-            android:icon="@drawable/ic_menu_camera"
-            android:title="Coordinator" />
+            android:title="Lista czujników" />
         <item
             android:id="@+id/nav_victim"
-            android:icon="@drawable/ic_menu_gallery"
-            android:title="Victim" />
+            android:title="Victim"
+            android:visible="false" />
         <item
             android:id="@+id/nav_status"
-            android:icon="@drawable/ic_menu_slideshow"
-            android:title="Status" />
+            android:title="Status"
+            android:visible="false" />
         <item
             android:id="@+id/nav_settings"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Settings" />
+            android:title="Settings"
+            android:visible="false" />
     </group>
 
 </menu>
