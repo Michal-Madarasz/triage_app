@@ -8,6 +8,7 @@ import java.io.Serializable;
 //klasa reprezentująca poszkodowanego rozszerzona o
 //interfejs pozwalający na przesyłanie obiektu między aktywnościami
 public class Victim implements Parcelable, Serializable {
+    private static final long serialVersionUID = 186362213453111235L;
 
     public static final Creator<Victim> CREATOR = new Creator<Victim>() {
         @Override
