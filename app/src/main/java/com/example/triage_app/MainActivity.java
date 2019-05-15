@@ -40,6 +40,7 @@ import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.ConnectionInfo;
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
 import com.google.android.gms.nearby.connection.ConnectionResolution;
+import com.google.android.gms.nearby.connection.Connections;
 import com.google.android.gms.nearby.connection.ConnectionsClient;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo;
@@ -56,11 +57,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener {
+public class MainActivity extends AppCompatActivity {
 
     private static final String[] REQUIRED_PERMISSIONS =
             new String[]{
@@ -73,18 +74,18 @@ public class MainActivity extends AppCompatActivity
             };
 
     private String SERVICE_ID = "triage.rescuer-simulator";
-    //private String endID = "";
     private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
 
     private Rescuer rescuerData;
     CustomAdapter customAdapter;
     private ArrayList<Endpoint> endpoints = new ArrayList<>();
 
+    private boolean discovering = false;
+
     private final EndpointDiscoveryCallback endpointDiscoveryCallback =
             new EndpointDiscoveryCallback() {
                 @Override
                 public void onEndpointFound(String endpointId, DiscoveredEndpointInfo info) {
-                    // An endpoint was found. We request a connection to it.
                     Endpoint e = new Endpoint();
                     e.setId(endpointId);
                     e.setName(info.getEndpointName());
@@ -95,6 +96,13 @@ public class MainActivity extends AppCompatActivity
                 @Override
                 public void onEndpointLost(String endpointId) {
                     // A previously discovered endpoint has gone away.
+                    for (Iterator<Endpoint> iterator = endpoints.iterator(); iterator.hasNext(); ) {
+                        Endpoint e = iterator.next();
+                        if (endpointId.equals(e.getId())) {
+                            iterator.remove();
+                        }
+                    }
+                    customAdapter.notifyDataSetChanged();
                 }
             };
 
@@ -138,7 +146,7 @@ public class MainActivity extends AppCompatActivity
             switch (result.getStatus().getStatusCode()) {
                 case ConnectionsStatusCodes.STATUS_OK:
                     // We're connected! Can now start sending and receiving data.
-                    Toast.makeText(getApplicationContext(), "Połączenie ustanowione z " + endpointId, Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(getApplicationContext(), "Połączenie ustanowione z " + endpointId, Toast.LENGTH_SHORT).show();
                     ByteArrayOutputStream bos = new ByteArrayOutputStream();
                     try {
                         ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -146,12 +154,15 @@ public class MainActivity extends AppCompatActivity
                         oos.flush();
                         byte[] data = bos.toByteArray();
                         Payload bytesPayload = Payload.fromBytes(data);
-                        Nearby.getConnectionsClient(getApplicationContext()).sendPayload(endpointId, bytesPayload);
+                        Nearby.getConnectionsClient(getApplicationContext()).sendPayload(endpointId, bytesPayload)
+                                .addOnSuccessListener(
+                                        (Void unused) -> {
+                                            Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(endpointId);
+                                        });
                         //Toast.makeText(getApplicationContext(), "Wysłano", Toast.LENGTH_SHORT).show();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(endpointId);
                     break;
                 case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
                     // The connection was rejected by one or both sides.
@@ -168,7 +179,6 @@ public class MainActivity extends AppCompatActivity
         public void onDisconnected(String endpointId) {
             // We've been disconnected from this endpoint. No more data can be
             // sent or received.
-
         }
     };
 
@@ -192,6 +202,7 @@ public class MainActivity extends AppCompatActivity
                 .addOnSuccessListener(
                         (Void unused) -> {
                             Toast.makeText(getApplicationContext(), "Startujemy odkrywanie", Toast.LENGTH_SHORT).show();
+                            discovering = true;
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
@@ -263,16 +274,6 @@ public class MainActivity extends AppCompatActivity
         setSupportActionBar(toolbar);
         startDiscovery();
 
-        DrawerLayout drawer = findViewById(R.id.drawer_layout);
-        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-        drawer.addDrawerListener(toggle);
-        toggle.syncState();
-
-        NavigationView navigationView = findViewById(R.id.nav_view);
-        navigationView.setNavigationItemSelectedListener(this);
-
-
         ListView lv = findViewById(R.id.endpoint_list);
         customAdapter = new CustomAdapter(this, endpoints);
         lv.setAdapter(customAdapter);
@@ -292,40 +293,35 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-
-        Button sendButton = findViewById(R.id.send_button);
-        sendButton.setOnClickListener(new View.OnClickListener() {
+        TextView t = findViewById(R.id.reset_transmitter);
+        t.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                /*
-                Random r = new Random();
-                long imei = r.nextLong() % 1000000000000000L;
-                boolean b = r.nextBoolean();
-                int rate = r.nextInt(40) + 10;
-                float capRefillTime = r.nextFloat() * 3f + 0.5f;
-                boolean w = r.nextBoolean();
-                Victim.AVPU c = Victim.AVPU.values()[r.nextInt(Victim.AVPU.values().length)];
-                Victim randomVictim = new Victim(imei, b, rate, capRefillTime, w, c);
-
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                try {
-                    ObjectOutputStream oos = new ObjectOutputStream(bos);
-                    oos.writeObject(randomVictim);
-                    oos.flush();
-                    byte[] data = bos.toByteArray();
-                    Payload bytesPayload = Payload.fromBytes(data);
-                    Nearby.getConnectionsClient(getApplicationContext()).sendPayload(endID, bytesPayload);
-                    Toast.makeText(getApplicationContext(), "Wysłano", Toast.LENGTH_SHORT).show();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                if(discovering){
+                    Nearby.getConnectionsClient(getApplicationContext()).stopDiscovery();
                 }
-                */
+                startDiscovery();
+                updateSettings();
+            }
+        });
+
+        t = findViewById(R.id.clear_endpoints);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
+                endpoints.clear();
+                customAdapter.notifyDataSetChanged();
             }
         });
 
     }
 
-    /*
+    public void updateSettings(){
+        TextView t = findViewById(R.id.transmitter_status_label);
+        t.setText( discovering ? "szuka czujników" : "bezczynny");
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -343,6 +339,7 @@ public class MainActivity extends AppCompatActivity
         ViewFlipper vf = findViewById(R.id.layout_manager);
         switch(id){
             case R.id.action_settings:
+                updateSettings();
                 vf.setDisplayedChild(1);
                 return true;
             default:
@@ -351,46 +348,7 @@ public class MainActivity extends AppCompatActivity
 
         return super.onOptionsItemSelected(item);
     }
-    */
 
 
-    @Override
-    public void onBackPressed() {
-        DrawerLayout drawer = findViewById(R.id.drawer_layout);
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
-            drawer.closeDrawer(GravityCompat.START);
-        } else {
-            super.onBackPressed();
-        }
-    }
 
-
-    @Override
-    public boolean onNavigationItemSelected(MenuItem item) {
-        // Handle navigation view item clicks here.
-        int id = item.getItemId();
-
-        ViewFlipper flipper = findViewById(R.id.layout_manager);
-
-        switch (id) {
-            case R.id.nav_coordinator:
-                flipper.setDisplayedChild(0);
-                return true;
-            case R.id.nav_victim:
-                flipper.setDisplayedChild(2);
-                return true;
-            case R.id.nav_status:
-                flipper.setDisplayedChild(0);
-                return true;
-            case R.id.nav_settings:
-//                flipper.setDisplayedChild(1);
-                return true;
-            default:
-                flipper.setDisplayedChild(0);
-        }
-
-        DrawerLayout drawer = findViewById(R.id.drawer_layout);
-        drawer.closeDrawer(GravityCompat.START);
-        return true;
-    }
 }

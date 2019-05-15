@@ -43,7 +43,9 @@ public class CustomAdapter extends BaseAdapter {
     public View getView(int i, View view, ViewGroup viewGroup) {
         view = inflater.inflate(R.layout.endpoint_list_item, null);
         TextView id = (TextView) view.findViewById(R.id.endpoint_id);
-        id.setText("Czujnik: "+String.format("%s", endpointList.get(i).getId()));
+        String s = String.format("%s", endpointList.get(i).getName())+": "+
+                   String.format("%s", endpointList.get(i).getId());
+        id.setText(s);
 
         return view;
     }
