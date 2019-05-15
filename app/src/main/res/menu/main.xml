@@ -5,12 +5,12 @@
     <item
         android:id="@+id/action_main"
         android:orderInCategory="1"
-        android:title="lista czujników"
+        android:title="Lista czujników"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_settings"
         android:orderInCategory="2"
-        android:title="ustawienia"
+        android:title="Ustawienia"
         app:showAsAction="never" />
 
 </menu>
