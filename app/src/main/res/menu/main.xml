@@ -1,9 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.example.coordinator_app.MainActivity">
+    <item
+        android:id="@+id/action_main"
+        android:orderInCategory="1"
+        android:title="Lista czujników"
+        app:showAsAction="never" />
     <item
         android:id="@+id/action_settings"
-        android:orderInCategory="100"
-        android:title="@string/action_settings"
+        android:orderInCategory="2"
+        android:title="Ustawienia"
         app:showAsAction="never" />
+
 </menu>
