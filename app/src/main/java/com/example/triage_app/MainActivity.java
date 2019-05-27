@@ -122,22 +122,7 @@ public class MainActivity extends AppCompatActivity {
     private final ConnectionLifecycleCallback connectionLifecycleCallback = new ConnectionLifecycleCallback() {
         @Override
         public void onConnectionInitiated(String endpointId, ConnectionInfo connectionInfo) {
-            new AlertDialog.Builder(MainActivity.this)
-                    .setTitle("Autoryzacja")
-                    .setMessage("Wykryto próbę połączenia.\nCzy drugie urządzenie wyświetla kod: " + connectionInfo.getAuthenticationToken())
-                    .setPositiveButton("tak", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(endpointId, payloadReciever);
-                        }
-                    })
-                    .setNegativeButton("nie", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Nearby.getConnectionsClient(getApplicationContext()).rejectConnection(endpointId);
-                        }
-                    })
-                    .show();
+            Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(endpointId, payloadReciever);
             //Toast.makeText(getApplicationContext(), "Połączenie ustanowione z " + endID, Toast.LENGTH_SHORT).show();
         }
 
@@ -201,12 +186,12 @@ public class MainActivity extends AppCompatActivity {
                 discoveryOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
-                            Toast.makeText(getApplicationContext(), "Startujemy odkrywanie", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "Skanowanie w poszukiwaniu czujników", Toast.LENGTH_SHORT).show();
                             discovering = true;
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
-                            Toast.makeText(getApplicationContext(), "Nie wystartowano odkrywania", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "Błąd inicjalizacji nadajnika, \nnadajnik jest wykorzystywany przez inną aplikację", Toast.LENGTH_SHORT).show();
                             Log.e("TAG", e.getMessage());
                         });
     }
@@ -284,11 +269,11 @@ public class MainActivity extends AppCompatActivity {
                 Nearby.getConnectionsClient(getApplicationContext()).requestConnection(end.getName(), end.getId(), connectionLifecycleCallback)
                         .addOnSuccessListener(
                                 (Void unused) -> {
-                                    Toast.makeText(getApplicationContext(), "Połączenie uzyskane", Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(getApplicationContext(), "Połączono z "+end.getName(), Toast.LENGTH_SHORT).show();
                                 })
                         .addOnFailureListener(
                                 (Exception e) -> {
-                                    Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(getApplicationContext(), "Błąd połączenia z "+end.getName(), Toast.LENGTH_SHORT).show();
                                 });
             }
         });
