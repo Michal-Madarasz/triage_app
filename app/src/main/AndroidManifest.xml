@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--Politechnika Wrocławska 2019-->
+<!--Projekt zespołowy - Triage-->
+<!--Prowadzący - Dr inż. Jan Nikodem-->
+<!--Autorzy:    Mariusz Magiera-->
+            <!--Michał Madarasz-->
+            <!--Stanisław Straburzyński-->
+            <!--Bartłomiej Siusta-->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.triage_app">
 

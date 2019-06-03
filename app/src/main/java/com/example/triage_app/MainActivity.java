@@ -3,7 +3,6 @@ package com.example.triage_app;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -42,11 +41,16 @@ import com.triage.model.Rescuer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -212,71 +216,103 @@ public class MainActivity extends AppCompatActivity {
         r.setId(tm.getDeviceId());
         final EditText name = new EditText(this);
         name.setInputType(InputType.TYPE_CLASS_TEXT);
-//        new AlertDialog.Builder(this)
-//                .setTitle("Podaj swoje dane")
-//                .setMessage("Podaj swoje imię i nazwisko w celu identyfikacji (pole może być puste)")
-//                .setView(name)
-//                .setPositiveButton("Kontynuuj", new DialogInterface.OnClickListener() {
-//                    @Override
-//                    public void onClick(DialogInterface dialog, int which) {
-//                        r.setName(name.getText().toString());
-//                        rescuerData = r;
-//                    }
-//                })
-//                .setNegativeButton("Wyjdź", new DialogInterface.OnClickListener() {
-//                    @Override
-//                    public void onClick(DialogInterface dialog, int which) {
-//                        android.os.Process.killProcess(android.os.Process.myPid());
-//                        System.exit(1);
-//                    }
-//                })
-//                .show();
 
 
-        AlertDialog.Builder mBuilder = new AlertDialog.Builder(MainActivity.this);
-        View mView = getLayoutInflater().inflate(R.layout.dialog_login, null);
-        final EditText mEmail = (EditText) mView.findViewById(R.id.etEmail);
-        final EditText mPassword = (EditText) mView.findViewById(R.id.etPassword);
-        Button mLogin = (Button) mView.findViewById(R.id.login_button);
+        if (isLoggedIn()) {
+            Toast.makeText(MainActivity.this, "Zalogowany", Toast.LENGTH_SHORT);
+            Log.e("Login", "Zalogowany");
+        } else {
+            AlertDialog.Builder mBuilder = new AlertDialog.Builder(MainActivity.this);
+            View mView = getLayoutInflater().inflate(R.layout.dialog_login, null);
+            final EditText mId = (EditText) mView.findViewById(R.id.etId);
+            final EditText mPassword = (EditText) mView.findViewById(R.id.etPassword);
+            Button mLogin = (Button) mView.findViewById(R.id.login_button);
 
 
-        mBuilder.setView(mView);
-        mBuilder.setCancelable(false);
-        final AlertDialog dialog = mBuilder.create();
-        dialog.show();
+            mBuilder.setView(mView);
+            mBuilder.setCancelable(false);
+            final AlertDialog dialog = mBuilder.create();
+            dialog.show();
 
 
-        File path = getApplicationContext().getFilesDir();
-        File file = new File(path, "config.txt");
+            File path = getApplicationContext().getFilesDir();
+            File file = new File(path, "last_login.txt");
+            Log.e("Path", path.getPath());
 
+            //sprawdzenie czy login pasuje do schematu - R00 - R99
+            Pattern compiledPattern = Pattern.compile("R[0-9][0-9]");
+            Matcher matcher = compiledPattern.matcher(mId.getText().toString());
 
-        mLogin.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(!mEmail.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty()){
+            mLogin.setOnClickListener(v -> {
+                if (!mId.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty() &&
+                        matcher.matches()) {
                     Toast.makeText(MainActivity.this,
                             "Zalogowano",
                             Toast.LENGTH_SHORT).show();
-                            dialog.dismiss();
+
+                    //zapis do pliku login, hasło, czas w sekundach
                     try {
                         FileOutputStream stream = new FileOutputStream(file);
-                        stream.write("text-to-write".getBytes());
+                        Date date = new Date();
+                        String login = mId.getText().toString() + "\n" +
+                                mPassword.getText().toString() + "\n" +
+                                date.getTime() + "\n";
+                        Log.e("Zapis", login);
+                        stream.write(login.getBytes());
                         stream.close();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                }else{
+                    dialog.dismiss();
+
+                } else {
                     Toast.makeText(MainActivity.this,
                             "Wypełnij pola",
                             Toast.LENGTH_SHORT).show();
                 }
-            }
-        });
+            });
+        }
     }
 
     protected String[] getRequiredPermissions() {
         return REQUIRED_PERMISSIONS;
     }
+
+
+    //sprawdzenie czy uzytkownik nie był wczesniej zalogowany
+    //chyba nie do konca dziala, nie wiadomo dlaczego
+    private boolean isLoggedIn() {
+        File path = getApplicationContext().getExternalFilesDir(null);
+        File file = new File(path, "last_login.txt");
+        int length = (int) file.length();
+
+        byte[] bytes = new byte[length];
+
+
+        if (file.exists()) {
+            try {
+                FileInputStream in = new FileInputStream(file);
+                in.read(bytes);
+                in.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            String contents = new String(bytes);
+            Log.e("isLoggedIn", contents);
+
+            return true;
+        } else {
+            Log.e("isLoggedIn", "brak pliku");
+
+            return false;
+        }
+
+
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -291,49 +327,40 @@ public class MainActivity extends AppCompatActivity {
         ListView lv = findViewById(R.id.endpoint_list);
         customAdapter = new CustomAdapter(this, endpoints);
         lv.setAdapter(customAdapter);
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Endpoint end = endpoints.get(position);
-                Nearby.getConnectionsClient(getApplicationContext()).requestConnection(end.getName(), end.getId(), connectionLifecycleCallback)
-                        .addOnSuccessListener(
-                                (Void unused) -> {
-                                    Toast.makeText(getApplicationContext(), "Połączono z "+end.getName(), Toast.LENGTH_SHORT).show();
-                                })
-                        .addOnFailureListener(
-                                (Exception e) -> {
-                                    Toast.makeText(getApplicationContext(), "Błąd połączenia z "+end.getName(), Toast.LENGTH_SHORT).show();
-                                });
-            }
+        lv.setOnItemClickListener((parent, view, position, id) -> {
+            Endpoint end = endpoints.get(position);
+            Nearby.getConnectionsClient(getApplicationContext()).requestConnection(end.getName(), end.getId(), connectionLifecycleCallback)
+                    .addOnSuccessListener(
+                            (Void unused) -> {
+                                Toast.makeText(getApplicationContext(), "Połączono z " + end.getName(), Toast.LENGTH_SHORT).show();
+                            })
+                    .addOnFailureListener(
+                            (Exception e) -> {
+                                Toast.makeText(getApplicationContext(), "Błąd połączenia z " + end.getName(), Toast.LENGTH_SHORT).show();
+                            });
         });
 
         TextView t = findViewById(R.id.reset_transmitter);
-        t.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(discovering){
-                    Nearby.getConnectionsClient(getApplicationContext()).stopDiscovery();
-                }
-                startDiscovery();
-                updateSettings();
+        t.setOnClickListener(v -> {
+            if (discovering) {
+                Nearby.getConnectionsClient(getApplicationContext()).stopDiscovery();
             }
+            startDiscovery();
+            updateSettings();
         });
 
         t = findViewById(R.id.clear_endpoints);
-        t.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
-                endpoints.clear();
-                customAdapter.notifyDataSetChanged();
-            }
+        t.setOnClickListener(v -> {
+            Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
+            endpoints.clear();
+            customAdapter.notifyDataSetChanged();
         });
 
     }
 
-    public void updateSettings(){
+    public void updateSettings() {
         TextView t = findViewById(R.id.transmitter_status_label);
-        t.setText( discovering ? "szuka czujników" : "bezczynny");
+        t.setText(discovering ? "szuka czujników" : "bezczynny");
     }
 
     @Override
@@ -352,7 +379,7 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         ViewFlipper vf = findViewById(R.id.layout_manager);
-        switch(id){
+        switch (id) {
             case R.id.action_settings:
                 updateSettings();
                 vf.setDisplayedChild(1);

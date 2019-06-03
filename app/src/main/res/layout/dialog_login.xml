@@ -16,12 +16,12 @@
         android:textStyle="bold"/>
     
     <EditText
-        android:id="@+id/etEmail"
+        android:id="@+id/etId"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ems="10"
         android:layout_marginTop="10dp"
-        android:hint="Email"
+        android:hint="Id"
         android:inputType="textEmailAddress"/>
 
     <EditText
