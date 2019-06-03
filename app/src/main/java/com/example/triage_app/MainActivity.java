@@ -13,15 +13,12 @@ import android.support.v7.widget.Toolbar;
 import android.telephony.TelephonyManager;
 import android.text.InputType;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -247,28 +244,23 @@ public class MainActivity extends AppCompatActivity {
             dialog.show();
 
 
-            File path = getApplicationContext().getFilesDir();
-            File file = new File(path, "last_login.txt");
-            Log.e("Path", path.getPath());
-
-            //sprawdzenie czy login pasuje do schematu - R00 - R99
-            Pattern compiledPattern = Pattern.compile("R[0-9][0-9]");
-            Matcher matcher = compiledPattern.matcher(mId.getText().toString());
+            String filename = "last_login.txt";
 
             mLogin.setOnClickListener(v -> {
-                if (!mId.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty() &&
-                        matcher.matches()) {
+                if (!mId.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty()) {
                     Toast.makeText(MainActivity.this,
                             "Zalogowano",
                             Toast.LENGTH_SHORT).show();
 
                     //zapis do pliku login, hasło, czas w sekundach
                     try {
-                        FileOutputStream stream = new FileOutputStream(file);
+                        FileOutputStream stream = openFileOutput(filename, Context.MODE_PRIVATE);
                         Date date = new Date();
+
                         String login = mId.getText().toString() + "\n" +
                                 mPassword.getText().toString() + "\n" +
                                 date.getTime() + "\n";
+
                         Log.e("Zapis", login);
                         stream.write(login.getBytes());
                         stream.close();
@@ -294,9 +286,18 @@ public class MainActivity extends AppCompatActivity {
     //sprawdzenie czy uzytkownik nie był wczesniej zalogowany
     //chyba nie do konca dziala, nie wiadomo dlaczego
     private boolean isLoggedIn() {
-        File path = getApplicationContext().getExternalFilesDir(null);
-        File file = new File(path, "last_login.txt");
+        String path = getApplicationContext().getFilesDir() + "/" + "last_login.txt";
+        File file = new File(path);
         int length = (int) file.length();
+
+
+        //jakie pliki dostepne
+        File dirFiles = getApplicationContext().getFilesDir();
+        for (String fname: dirFiles.list())
+        {
+            Log.e("Pliki", fname);
+        }
+
 
         byte[] bytes = new byte[length];
 
@@ -314,6 +315,15 @@ public class MainActivity extends AppCompatActivity {
 
             String contents = new String(bytes);
             Log.e("isLoggedIn", contents);
+
+            String content_tab[] = contents.split("\n");
+            long oldTime = Long.parseLong(content_tab[2]);
+            Date newTime = new Date();
+
+            if (oldTime - newTime.getTime() > 4*60*60) {
+                Log.e("Czas","Przekroczono czas");
+                return false;
+            }
 
             return true;
         } else {
