@@ -1,23 +1,13 @@
 package com.example.triage_app;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.app.Application;
-import android.app.ListActivity;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
-import android.database.DataSetObserver;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.RequiresApi;
-import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.view.GravityCompat;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.telephony.TelephonyManager;
@@ -26,12 +16,11 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
@@ -40,8 +29,6 @@ import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.ConnectionInfo;
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
 import com.google.android.gms.nearby.connection.ConnectionResolution;
-import com.google.android.gms.nearby.connection.Connections;
-import com.google.android.gms.nearby.connection.ConnectionsClient;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo;
 import com.google.android.gms.nearby.connection.DiscoveryOptions;
@@ -51,15 +38,19 @@ import com.google.android.gms.nearby.connection.PayloadCallback;
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import com.google.android.gms.nearby.connection.Strategy;
 import com.triage.model.Rescuer;
-import com.triage.model.Victim;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -81,6 +72,15 @@ public class MainActivity extends AppCompatActivity {
     private ArrayList<Endpoint> endpoints = new ArrayList<>();
 
     private boolean discovering = false;
+
+
+    //Kod do spinnera w widoku victim_content
+    String[] spinnerTitles = new String[]{"Czarny", "Czerwony", "Żółty", "Zielony"};
+    int[] spinnerImages = new int[]{R.color.colorTriageBlack,
+                        R.color.colorTriageRed,
+                        R.color.colorTriageYellow,
+                        R.color.colorTriageGreen};
+
 
     private final EndpointDiscoveryCallback endpointDiscoveryCallback =
             new EndpointDiscoveryCallback() {
@@ -225,34 +225,121 @@ public class MainActivity extends AppCompatActivity {
         r.setId(tm.getDeviceId());
         final EditText name = new EditText(this);
         name.setInputType(InputType.TYPE_CLASS_TEXT);
-        new AlertDialog.Builder(this)
-                .setTitle("Podaj swoje dane")
-                .setMessage("Podaj swoje imię i nazwisko w celu identyfikacji (pole może być puste)")
-                .setView(name)
-                .setPositiveButton("Kontynuuj", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        r.setName(name.getText().toString());
-                        rescuerData = r;
+
+
+        if (isLoggedIn()) {
+            Toast.makeText(MainActivity.this, "Zalogowany", Toast.LENGTH_SHORT);
+            Log.e("Login", "Zalogowany");
+        } else {
+            AlertDialog.Builder mBuilder = new AlertDialog.Builder(MainActivity.this);
+            View mView = getLayoutInflater().inflate(R.layout.dialog_login, null);
+            final EditText mId = (EditText) mView.findViewById(R.id.etId);
+            final EditText mPassword = (EditText) mView.findViewById(R.id.etPassword);
+            Button mLogin = (Button) mView.findViewById(R.id.login_button);
+
+
+            mBuilder.setView(mView);
+            mBuilder.setCancelable(false);
+            final AlertDialog dialog = mBuilder.create();
+            dialog.show();
+
+
+            String filename = "last_login.txt";
+
+            mLogin.setOnClickListener(v -> {
+                if (!mId.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty()) {
+                    Toast.makeText(MainActivity.this,
+                            "Zalogowano",
+                            Toast.LENGTH_SHORT).show();
+
+                    //zapis do pliku login, hasło, czas w sekundach
+                    try {
+                        FileOutputStream stream = openFileOutput(filename, Context.MODE_PRIVATE);
+                        Date date = new Date();
+
+                        String login = mId.getText().toString() + "\n" +
+                                mPassword.getText().toString() + "\n" +
+                                date.getTime() + "\n";
+
+                        Log.e("Zapis", login);
+                        stream.write(login.getBytes());
+                        stream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                })
-                .setNegativeButton("Wyjdź", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        android.os.Process.killProcess(android.os.Process.myPid());
-                        System.exit(1);
-                    }
-                })
-                .show();
+                    dialog.dismiss();
+
+                } else {
+                    Toast.makeText(MainActivity.this,
+                            "Wypełnij pola",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     protected String[] getRequiredPermissions() {
         return REQUIRED_PERMISSIONS;
     }
 
+
+    //sprawdzenie czy uzytkownik nie był wczesniej zalogowany
+    //chyba nie do konca dziala, nie wiadomo dlaczego
+    private boolean isLoggedIn() {
+        String path = getApplicationContext().getFilesDir() + "/" + "last_login.txt";
+        File file = new File(path);
+        int length = (int) file.length();
+
+
+        //jakie pliki dostepne
+        File dirFiles = getApplicationContext().getFilesDir();
+        for (String fname: dirFiles.list())
+        {
+            Log.e("Pliki", fname);
+        }
+
+
+        byte[] bytes = new byte[length];
+
+
+        if (file.exists()) {
+            try {
+                FileInputStream in = new FileInputStream(file);
+                in.read(bytes);
+                in.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            String contents = new String(bytes);
+            Log.e("isLoggedIn", contents);
+
+            String content_tab[] = contents.split("\n");
+            long oldTime = Long.parseLong(content_tab[2]);
+            Date newTime = new Date();
+
+            if (oldTime - newTime.getTime() > 4*60*60) {
+                Log.e("Czas","Przekroczono czas");
+                return false;
+            }
+
+            return true;
+        } else {
+            Log.e("isLoggedIn", "brak pliku");
+
+            return false;
+        }
+
+
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         setContentView(R.layout.main_activity);
         Toolbar toolbar = findViewById(R.id.toolbar);
@@ -262,49 +349,52 @@ public class MainActivity extends AppCompatActivity {
         ListView lv = findViewById(R.id.endpoint_list);
         customAdapter = new CustomAdapter(this, endpoints);
         lv.setAdapter(customAdapter);
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Endpoint end = endpoints.get(position);
-                Nearby.getConnectionsClient(getApplicationContext()).requestConnection(end.getName(), end.getId(), connectionLifecycleCallback)
-                        .addOnSuccessListener(
-                                (Void unused) -> {
-                                    Toast.makeText(getApplicationContext(), "Połączono z "+end.getName(), Toast.LENGTH_SHORT).show();
-                                })
-                        .addOnFailureListener(
-                                (Exception e) -> {
-                                    Toast.makeText(getApplicationContext(), "Błąd połączenia z "+end.getName(), Toast.LENGTH_SHORT).show();
-                                });
-            }
+        lv.setOnItemClickListener((parent, view, position, id) -> {
+            Endpoint end = endpoints.get(position);
+            Nearby.getConnectionsClient(getApplicationContext()).requestConnection(end.getName(), end.getId(), connectionLifecycleCallback)
+                    .addOnSuccessListener(
+                            (Void unused) -> {
+                                Toast.makeText(getApplicationContext(), "Połączono z " + end.getName(), Toast.LENGTH_SHORT).show();
+                            })
+                    .addOnFailureListener(
+                            (Exception e) -> {
+                                Toast.makeText(getApplicationContext(), "Błąd połączenia z " + end.getName(), Toast.LENGTH_SHORT).show();
+                            });
         });
 
         TextView t = findViewById(R.id.reset_transmitter);
-        t.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(discovering){
-                    Nearby.getConnectionsClient(getApplicationContext()).stopDiscovery();
-                }
-                startDiscovery();
-                updateSettings();
+        t.setOnClickListener(v -> {
+            if (discovering) {
+                Nearby.getConnectionsClient(getApplicationContext()).stopDiscovery();
             }
+            startDiscovery();
+            updateSettings();
         });
 
         t = findViewById(R.id.clear_endpoints);
-        t.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
-                endpoints.clear();
-                customAdapter.notifyDataSetChanged();
-            }
+        t.setOnClickListener(v -> {
+            Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
+            endpoints.clear();
+            customAdapter.notifyDataSetChanged();
+        });
+
+
+        //
+        ColorAdapter mCustomAdapter = new ColorAdapter(MainActivity.this, spinnerTitles, spinnerImages);
+        Spinner mSpinner = findViewById(R.id.spinner);
+        mSpinner.setAdapter(mCustomAdapter);
+
+
+        Button sendButton= findViewById(R.id.sendButton);
+        sendButton.setOnClickListener(v -> {
+
         });
 
     }
 
-    public void updateSettings(){
+    public void updateSettings() {
         TextView t = findViewById(R.id.transmitter_status_label);
-        t.setText( discovering ? "szuka czujników" : "bezczynny");
+        t.setText(discovering ? "szuka czujników" : "bezczynny");
     }
 
     @Override
@@ -314,6 +404,7 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -322,10 +413,13 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         ViewFlipper vf = findViewById(R.id.layout_manager);
-        switch(id){
+        switch (id) {
             case R.id.action_settings:
                 updateSettings();
                 vf.setDisplayedChild(1);
+                return true;
+            case R.id.action_attributes:
+                vf.setDisplayedChild(2);
                 return true;
             default:
                 vf.setDisplayedChild(0);
@@ -333,7 +427,4 @@ public class MainActivity extends AppCompatActivity {
 
         return super.onOptionsItemSelected(item);
     }
-
-
-
 }
