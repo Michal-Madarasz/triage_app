@@ -13,6 +13,7 @@ import android.support.v7.widget.Toolbar;
 import android.telephony.TelephonyManager;
 import android.text.InputType;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -20,7 +21,9 @@ import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
@@ -72,6 +75,15 @@ public class MainActivity extends AppCompatActivity {
     private ArrayList<Endpoint> endpoints = new ArrayList<>();
 
     private boolean discovering = false;
+
+
+    //Kod do spinnera w widoku victim_content
+    String[] spinnerTitles = new String[]{"Czarny", "Czerwony", "Żółty", "Zielony"};
+    int[] spinnerImages = new int[]{R.color.colorTriageBlack,
+                        R.color.colorTriageRed,
+                        R.color.colorTriageYellow,
+                        R.color.colorTriageGreen};
+
 
     private final EndpointDiscoveryCallback endpointDiscoveryCallback =
             new EndpointDiscoveryCallback() {
@@ -354,6 +366,18 @@ public class MainActivity extends AppCompatActivity {
             Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
             endpoints.clear();
             customAdapter.notifyDataSetChanged();
+        });
+
+
+        //
+        ColorAdapter mCustomAdapter = new ColorAdapter(MainActivity.this, spinnerTitles, spinnerImages);
+        Spinner mSpinner = findViewById(R.id.spinner);
+        mSpinner.setAdapter(mCustomAdapter);
+
+
+        Button sendButton= findViewById(R.id.sendButton);
+        sendButton.setOnClickListener(v -> {
+
         });
 
     }

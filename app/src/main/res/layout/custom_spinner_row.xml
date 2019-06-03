@@ -6,8 +6,8 @@
 
     <ImageView
         android:id="@+id/iColor"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
         android:padding="5dp"
         app:srcCompat="@color/colorPrimary" />
 
@@ -19,7 +19,6 @@
         android:layout_toRightOf="@+id/iColor"
         android:padding="5dp"
         android:text=""
-        android:textColor="@color/colorAccent"
         android:textSize="20sp"
         android:textStyle="italic" />
 

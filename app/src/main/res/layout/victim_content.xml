@@ -155,12 +155,16 @@
         android:id="@+id/spinner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/sendButton"
+        app:layout_constraintStart_toEndOf="@+id/color_label"
+        app:layout_constraintTop_toBottomOf="@+id/conscious_label"
         tools:ignore="MissingConstraints">
 
     </Spinner>
 
     <Button
-        android:id="@+id/startButton"
+        android:id="@+id/sendButton"
         android:layout_width="118dp"
         android:layout_height="60dp"
         android:layout_marginStart="8dp"

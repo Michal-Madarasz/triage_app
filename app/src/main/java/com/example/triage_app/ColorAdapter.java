@@ -51,7 +51,7 @@ public class ColorAdapter extends ArrayAdapter {
 
     @Override
     public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-        return super.getDropDownView(position, convertView, parent);
+        return getView(position, convertView, parent);
     }
 
     private static class ViewHolder {
