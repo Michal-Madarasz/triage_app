@@ -13,10 +13,11 @@
         android:orderInCategory="2"
         android:title="Ustawienia"
         app:showAsAction="never" />
+    <!--
     <item
         android:id="@+id/action_attributes"
         android:orderInCategory="3"
         android:title="Stan poszkodowanego"
         app:showAsAction="never" />
-
+    -->
 </menu>
