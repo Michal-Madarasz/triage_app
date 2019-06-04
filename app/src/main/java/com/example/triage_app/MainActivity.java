@@ -3,6 +3,7 @@ package com.example.triage_app;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -39,6 +40,7 @@ import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import com.google.android.gms.nearby.connection.Strategy;
 import com.google.android.gms.nearby.messages.NearbyPermissions;
 import com.triage.model.Rescuer;
+import com.triage.model.Victim;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -71,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
     private String SERVICE_ID = "triage.communication";
     private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
 
+    private String chosenEndpointID;
+    private Victim victim = null;
     private String triageSystem = "";
     private Rescuer rescuerData = new Rescuer();
     CustomAdapter customAdapter;
@@ -95,8 +99,11 @@ public class MainActivity extends AppCompatActivity {
                     e.setId(endpointId);
                     e.setName(info.getEndpointName());
 
-                    if(e.getName().equals("Kierujacy Akcja Medyczna") && triageSystem.isEmpty()){
-                        Nearby.getConnectionsClient(getApplicationContext()).requestConnection(e.getName(), e.getId(), connectionLifecycleCallback);
+                    if(e.getName().equals("Kierujacy Akcja Medyczna")){
+                        if(triageSystem.isEmpty()) {
+                            Nearby.getConnectionsClient(getApplicationContext()).requestConnection(e.getName(), e.getId(), connectionLifecycleCallback);
+                            //Toast.makeText(getApplicationContext(), "Wykryto KAM. Łączę się", Toast.LENGTH_SHORT).show();
+                        }
                     }
                     else{
                         endpoints.add(e);
@@ -121,19 +128,35 @@ public class MainActivity extends AppCompatActivity {
     private PayloadCallback payloadReciever = new PayloadCallback() {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
-            try {//próba interpretacji jako system klasyfikacji
-                //trzeba sprawdzić czy nie dekodowa
-                triageSystem = new String( payload.asBytes());//konwersja bajtów na tekst
-
-                ArrayList<String> triageSystems = new ArrayList<>(Arrays.asList("START", "CareFlight", "SIEVE"));
-                if(!triageSystems.contains(triageSystem)){
+            try {//próba interpretacji jako poszkodowany
+                if(victim!=null)
                     throw new Exception();
-                }
 
-                ((TextView) findViewById(R.id.System_val)).setText(triageSystem);
+                ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
+                ObjectInputStream is = new ObjectInputStream(bis);
+                victim = (Victim) is.readObject();
+
+                showColorChoiceDialog(victim, s);
+
+
                 return;
             } catch (Exception exception){
-                Log.e("Payload", exception.getMessage());
+                Log.e("Payload", "error");
+            }
+
+            try {//próba interpretacji jako system klasyfikacji
+                String system = new String( payload.asBytes());//konwersja bajtów na tekst
+
+                ArrayList<String> triageSystems = new ArrayList<>(Arrays.asList("START", "CareFlight", "SIEVE"));
+                if(!triageSystems.contains(system)){
+                    throw new Exception();
+                }
+                triageSystem = system;
+                ((TextView) findViewById(R.id.System_val)).setText(triageSystem);
+                Toast.makeText(getApplicationContext(), "Otrzymano system od KAMa: " + triageSystem, Toast.LENGTH_SHORT).show();
+                return;
+            } catch (Exception exception){
+                Log.e("Payload", "error");
             } //nastąpił błąd konwersji
         }
 
@@ -193,6 +216,15 @@ public class MainActivity extends AppCompatActivity {
         public void onDisconnected(String endpointId) {
             // We've been disconnected from this endpoint. No more data can be
             // sent or received.
+            for (Iterator<Endpoint> iterator = endpoints.iterator(); iterator.hasNext(); ) {
+                Endpoint e = iterator.next();
+                if (endpointId.equals(e.getId())) {
+                    Toast.makeText(getApplicationContext(), "Rozłączono z czujnikiem: "+e.getName(), Toast.LENGTH_SHORT).show();
+                    iterator.remove();
+                    return;
+                }
+            }
+            Toast.makeText(getApplicationContext(), "Rozłączono z KAMem", Toast.LENGTH_SHORT).show();
         }
     };
 
@@ -215,7 +247,7 @@ public class MainActivity extends AppCompatActivity {
                 discoveryOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
-                            Toast.makeText(getApplicationContext(), "Skanowanie w poszukiwaniu czujników", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "Skanowanie w poszukiwaniu KAMa", Toast.LENGTH_SHORT).show();
                             discovering = true;
                         })
                 .addOnFailureListener(
@@ -456,8 +488,6 @@ public class MainActivity extends AppCompatActivity {
             customAdapter.notifyDataSetChanged();
         });
 
-
-        //
         ColorAdapter mCustomAdapter = new ColorAdapter(MainActivity.this, spinnerTitles, spinnerImages);
         Spinner mSpinner = findViewById(R.id.spinner);
         mSpinner.setAdapter(mCustomAdapter);
@@ -465,7 +495,45 @@ public class MainActivity extends AppCompatActivity {
 
         Button sendButton= findViewById(R.id.sendButton);
         sendButton.setOnClickListener(v -> {
+            Victim.TriageColor c = null;
+            int id = ((Spinner) findViewById(R.id.spinner)).getSelectedItemPosition();
+            switch (id){
+                case 0:
+                    c = Victim.TriageColor.BLACK;
+                    break;
+                case 1:
+                    c = Victim.TriageColor.RED;
+                    break;
+                case 2:
+                    c = Victim.TriageColor.YELLOW;
+                    break;
+                case 3:
+                    c = Victim.TriageColor.GREEN;
+            }
 
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            try {
+                ObjectOutputStream oos = new ObjectOutputStream(bos);
+                oos.writeObject(c);
+                oos.flush();
+                byte[] data = bos.toByteArray();
+                Payload bytesPayload = Payload.fromBytes(data);
+                Nearby.getConnectionsClient(getApplicationContext()).sendPayload(chosenEndpointID, bytesPayload)
+                        .addOnSuccessListener(
+                                (Void unused) -> {
+                                    Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(chosenEndpointID);
+                                    Toast.makeText(getApplicationContext(), "Próba rozłączenia", Toast.LENGTH_SHORT).show();
+                                    hideColorChoiceDialog();
+                                })
+                        .addOnFailureListener(
+                                (Exception e) -> {
+                                    Toast.makeText(getApplicationContext(), "Błąd przesyłu koloru", Toast.LENGTH_SHORT).show();
+                                    Log.e("Payload", e.getMessage());
+                                });
+                //Toast.makeText(getApplicationContext(), "Wysłano", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
     }
@@ -473,6 +541,46 @@ public class MainActivity extends AppCompatActivity {
     public void updateSettings() {
         TextView t = findViewById(R.id.transmitter_status_label);
         t.setText(discovering ? "szuka czujników" : "bezczynny");
+    }
+
+    private void showColorChoiceDialog(Victim v, String endpointID){
+        chosenEndpointID = endpointID;
+        ((ViewFlipper) findViewById(R.id.layout_manager)).setDisplayedChild(2);
+        (findViewById(R.id.toolbar)).setVisibility(View.GONE);
+
+        TextView t = findViewById(R.id.breath_val);
+        if(v.isBreathing())
+            t.setText("tak");
+        else
+            t.setText("nie");
+
+        t = findViewById(R.id.refill_val);
+        t.setText(v.getRespiratoryRate()+"odd./min");
+
+        t = findViewById(R.id.pulse_val);
+        t.setText(v.getCapillaryRefillTime()+"s");
+
+        t = findViewById(R.id.walking_val);
+        if(v.isWalking())
+            t.setText("tak");
+        else
+            t.setText("nie");
+
+        t = findViewById(R.id.conscious_val);
+        switch(v.getConsciousness()){
+            case AWAKE: t.setText("przytomny"); break;
+            case VERBAL: t.setText("reag. na głos"); break;
+            case PAIN: t.setText("reag. na ból"); break;
+            case UNRESPONSIVE: t.setText("nieprzytomny"); break;
+        }
+
+    }
+
+    private void hideColorChoiceDialog(){
+        chosenEndpointID = null;
+        victim = null;
+        ((ViewFlipper) findViewById(R.id.layout_manager)).setDisplayedChild(0);
+        (findViewById(R.id.toolbar)).setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -496,13 +604,35 @@ public class MainActivity extends AppCompatActivity {
                 updateSettings();
                 vf.setDisplayedChild(1);
                 return true;
-            case R.id.action_attributes:
-                vf.setDisplayedChild(2);
-                return true;
+            //  case R.id.action_attributes:
+                //vf.setDisplayedChild(2);
+                //return true;
             default:
                 vf.setDisplayedChild(0);
         }
-
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onBackPressed(){
+        if(((ViewFlipper)findViewById(R.id.layout_manager)).getDisplayedChild() == 2){
+            AlertDialog.Builder mBuilder = new AlertDialog.Builder(MainActivity.this);
+
+            mBuilder.setMessage("Czy na pewno chcesz rozłączyć się z czujnikiem?")
+                    .setPositiveButton("Tak", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(chosenEndpointID);
+                            hideColorChoiceDialog();
+                            Toast.makeText(getApplicationContext(), "Rozłączono", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton("Nie", null);
+
+            final AlertDialog dialog = mBuilder.create();
+            dialog.show();
+            return;
+        }
+        super.onBackPressed();
     }
 }
