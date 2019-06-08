@@ -2,9 +2,9 @@
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/content"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:id="@+id/content"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:context=".MainActivity">
 
@@ -64,6 +64,17 @@
         app:layout_constraintTop_toBottomOf="@+id/walking_label" />
 
     <TextView
+        android:id="@+id/monitor_id_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="4dp"
+        android:layout_marginTop="30dp"
+        android:text="ID czujnika:"
+        android:textSize="20sp"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/conscious_label" />
+
+    <TextView
         android:id="@+id/color_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -72,7 +83,7 @@
         android:text="Kolor klasyfikacji:"
         android:textSize="20sp"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/conscious_label" />
+        app:layout_constraintTop_toBottomOf="@+id/monitor_id_label" />
 
     <TextView
         android:id="@+id/breath_label"
@@ -86,7 +97,7 @@
         app:layout_constraintTop_toBottomOf="@+id/System_label" />
 
     <TextView
-        android:id="@+id/System_val"
+        android:id="@+id/details_system_val"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -105,7 +116,7 @@
         android:text=""
         android:textSize="20sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/System_val" />
+        app:layout_constraintTop_toBottomOf="@+id/details_system_val" />
 
     <TextView
         android:id="@+id/refill_val"
@@ -151,6 +162,17 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/walking_val" />
 
+    <TextView
+        android:id="@+id/monitor_id_val"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="30dp"
+        android:layout_marginEnd="4dp"
+        android:text=""
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/conscious_val" />
+
     <Spinner
         android:id="@+id/spinner"
         android:layout_width="match_parent"
@@ -158,7 +180,7 @@
         android:layout_marginTop="8dp"
         app:layout_constraintBottom_toTopOf="@+id/sendButton"
         app:layout_constraintStart_toEndOf="@+id/color_label"
-        app:layout_constraintTop_toBottomOf="@+id/conscious_label"
+        app:layout_constraintTop_toBottomOf="@+id/color_label"
         tools:ignore="MissingConstraints">
 
     </Spinner>
@@ -174,6 +196,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
-        <!--app:layout_constraintTop_toBottomOf="@+id/color_val" -->
-    
+    <!--app:layout_constraintTop_toBottomOf="@+id/color_val" -->
+
 </android.support.constraint.ConstraintLayout>
