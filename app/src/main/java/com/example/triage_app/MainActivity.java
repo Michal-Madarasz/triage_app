@@ -12,7 +12,6 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.telephony.TelephonyManager;
-import android.text.InputType;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -38,7 +37,6 @@ import com.google.android.gms.nearby.connection.Payload;
 import com.google.android.gms.nearby.connection.PayloadCallback;
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import com.google.android.gms.nearby.connection.Strategy;
-import com.google.android.gms.nearby.messages.NearbyPermissions;
 import com.triage.model.Rescuer;
 import com.triage.model.Victim;
 
@@ -55,8 +53,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import static java.lang.Thread.sleep;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -82,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean discovering = false;
 
+    private Victim.TriageColor lastColor = null;
 
     //Kod do spinnera w widoku victim_content
     String[] spinnerTitles = new String[]{"Czarny", "Czerwony", "Żółty", "Zielony"};
@@ -129,19 +128,23 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
             try {//próba interpretacji jako poszkodowany
-                if(victim!=null)
-                    throw new Exception();
+                if(victim!=null) {
+                    ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
+                    ObjectInputStream is = new ObjectInputStream(bis);
+                    victim = (Victim) is.readObject();
 
-                ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
-                ObjectInputStream is = new ObjectInputStream(bis);
-                victim = (Victim) is.readObject();
+                    updateVictimDetailsInColorChoice(victim);
+                }
+                else {
+                    ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
+                    ObjectInputStream is = new ObjectInputStream(bis);
+                    victim = (Victim) is.readObject();
 
-                showColorChoiceDialog(victim, s);
-
-
+                    showColorChoiceDialog(victim, s);
+                }
                 return;
             } catch (Exception exception){
-                Log.e("Payload", "error");
+                Log.e("Payload", "not a victim");
             }
 
             try {//próba interpretacji jako system klasyfikacji
@@ -152,8 +155,10 @@ public class MainActivity extends AppCompatActivity {
                     throw new Exception();
                 }
                 triageSystem = system;
-                ((TextView) findViewById(R.id.System_val)).setText(triageSystem);
+                ((TextView) findViewById(R.id.details_system_val)).setText(triageSystem);
+                ((TextView) findViewById(R.id.list_system_val)).setText(triageSystem);
                 Toast.makeText(getApplicationContext(), "Otrzymano system od KAMa: " + triageSystem, Toast.LENGTH_SHORT).show();
+                Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(s);
                 return;
             } catch (Exception exception){
                 Log.e("Payload", "error");
@@ -220,7 +225,12 @@ public class MainActivity extends AppCompatActivity {
                 Endpoint e = iterator.next();
                 if (endpointId.equals(e.getId())) {
                     Toast.makeText(getApplicationContext(), "Rozłączono z czujnikiem: "+e.getName(), Toast.LENGTH_SHORT).show();
+                    if(lastColor==null){
+                        return;
+                    }
                     iterator.remove();
+                    customAdapter.notifyDataSetChanged();
+                    lastColor=null;
                     return;
                 }
             }
@@ -495,26 +505,25 @@ public class MainActivity extends AppCompatActivity {
 
         Button sendButton= findViewById(R.id.sendButton);
         sendButton.setOnClickListener(v -> {
-            Victim.TriageColor c = null;
             int id = ((Spinner) findViewById(R.id.spinner)).getSelectedItemPosition();
             switch (id){
                 case 0:
-                    c = Victim.TriageColor.BLACK;
+                    lastColor = Victim.TriageColor.BLACK;
                     break;
                 case 1:
-                    c = Victim.TriageColor.RED;
+                    lastColor = Victim.TriageColor.RED;
                     break;
                 case 2:
-                    c = Victim.TriageColor.YELLOW;
+                    lastColor = Victim.TriageColor.YELLOW;
                     break;
                 case 3:
-                    c = Victim.TriageColor.GREEN;
+                    lastColor = Victim.TriageColor.GREEN;
             }
 
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             try {
                 ObjectOutputStream oos = new ObjectOutputStream(bos);
-                oos.writeObject(c);
+                oos.writeObject(lastColor);
                 oos.flush();
                 byte[] data = bos.toByteArray();
                 Payload bytesPayload = Payload.fromBytes(data);
@@ -528,6 +537,7 @@ public class MainActivity extends AppCompatActivity {
                         .addOnFailureListener(
                                 (Exception e) -> {
                                     Toast.makeText(getApplicationContext(), "Błąd przesyłu koloru", Toast.LENGTH_SHORT).show();
+                                    lastColor = null;
                                     Log.e("Payload", e.getMessage());
                                 });
                 //Toast.makeText(getApplicationContext(), "Wysłano", Toast.LENGTH_SHORT).show();
@@ -543,10 +553,7 @@ public class MainActivity extends AppCompatActivity {
         t.setText(discovering ? "szuka czujników" : "bezczynny");
     }
 
-    private void showColorChoiceDialog(Victim v, String endpointID){
-        chosenEndpointID = endpointID;
-        ((ViewFlipper) findViewById(R.id.layout_manager)).setDisplayedChild(2);
-        (findViewById(R.id.toolbar)).setVisibility(View.GONE);
+    private void updateVictimDetailsInColorChoice(Victim v){
 
         TextView t = findViewById(R.id.breath_val);
         if(v.isBreathing())
@@ -573,14 +580,49 @@ public class MainActivity extends AppCompatActivity {
             case PAIN: t.setText("reag. na ból"); break;
             case UNRESPONSIVE: t.setText("nieprzytomny"); break;
         }
+    }
+
+    private Endpoint findEndpointById(String id){
+        for (Iterator<Endpoint> iterator = endpoints.iterator(); iterator.hasNext(); ) {
+            Endpoint e = iterator.next();
+            if (id.equals(e.getId())) {
+                return e;
+            }
+        }
+        return new Endpoint();
+    }
+
+    private void showColorChoiceDialog(Victim v, String endpointID){
+        chosenEndpointID = endpointID;
+        Endpoint end = findEndpointById(chosenEndpointID);
+        ((ViewFlipper) findViewById(R.id.layout_manager)).setDisplayedChild(2);
+        (findViewById(R.id.toolbar)).setVisibility(View.GONE);
+
+        ((TextView)findViewById(R.id.monitor_id_val)).setText(end.getName());
+
+        updateVictimDetailsInColorChoice(v);
 
     }
 
     private void hideColorChoiceDialog(){
         chosenEndpointID = null;
-        victim = null;
+        clearVictimWithDelay(2000);
         ((ViewFlipper) findViewById(R.id.layout_manager)).setDisplayedChild(0);
         (findViewById(R.id.toolbar)).setVisibility(View.VISIBLE);
+
+    }
+
+    private void clearVictimWithDelay(long milis){
+
+        new java.util.Timer().schedule(
+                new java.util.TimerTask() {
+                    @Override
+                    public void run() {
+                        victim = null;
+                    }
+                },
+                milis
+        );
     }
 
     @Override

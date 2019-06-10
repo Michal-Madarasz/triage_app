@@ -23,7 +23,7 @@
             android:textSize="25dp" />
 
         <TextView
-            android:id="@+id/System_val"
+            android:id="@+id/list_system_val"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_marginRight="5px"
